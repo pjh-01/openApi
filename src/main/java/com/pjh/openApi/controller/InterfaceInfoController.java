@@ -158,7 +158,6 @@ public class InterfaceInfoController {
     /**
      * 分页获取当前用户创建的资源列表
      *
-     * @param interfaceInfoQueryRequest
      * @param request
      * @return
      */
