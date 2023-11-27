@@ -33,3 +33,8 @@ Q4 以上流程都完成后，发现调用方式太过复杂，如何简单地�
     配置org.springframework.boot.autoconfigure.EnableAutoConfiguration=com.pjh.pjhapiclientsdk.PjhApiClientSDKConfig
     5.在maven中运行install指令，发布到本地maven仓库中
     6.用户映入我的依赖，maven坐标就在原来的pom.xml中
+
+2023年11月27日 晚
+Q1 怎么去发布接口？
+    发布接口很简单，只需要修改status=1
+    但我们需要先验证该接口确实是可用的，于是选择hutool的Http工具类去访问该接口，根据http状态码是否为200判断可达

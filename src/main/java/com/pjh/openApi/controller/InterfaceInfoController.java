@@ -1,5 +1,7 @@
 package com.pjh.openApi.controller;
 
+import cn.hutool.http.HttpRequest;
+import cn.hutool.http.HttpResponse;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.google.gson.Gson;
 import com.pjh.openApi.annotation.AuthCheck;
@@ -12,19 +14,21 @@ import com.pjh.openApi.exception.BusinessException;
 import com.pjh.openApi.exception.ThrowUtils;
 import com.pjh.openApi.model.dto.interfaceInfo.InterfaceInfoAddRequest;
 import com.pjh.openApi.model.dto.interfaceInfo.InterfaceInfoEditRequest;
-import com.pjh.openApi.model.dto.interfaceInfo.InterfaceInfoQueryRequest;
 import com.pjh.openApi.model.dto.interfaceInfo.InterfaceInfoUpdateRequest;
 import com.pjh.openApi.model.entity.InterfaceInfo;
 import com.pjh.openApi.model.entity.User;
 import com.pjh.openApi.service.InterfaceInfoService;
 import com.pjh.openApi.service.UserService;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
-import java.util.List;
+
+import static com.pjh.openApi.model.enums.InterfaceInfoStatusEnum.OFFLINE;
+import static com.pjh.openApi.model.enums.InterfaceInfoStatusEnum.ONLINE;
 
 /**
  * 帖子接口
@@ -45,10 +49,10 @@ public class InterfaceInfoController {
 
     private final static Gson GSON = new Gson();
 
-    // region 增删改查
 
     /**
      * 新增接口
+     *
      * @param interfaceInfoAddRequest
      * @param request
      * @return
@@ -155,6 +159,7 @@ public class InterfaceInfoController {
 //        return ResultUtils.success(interfaceInfoService.getInterfaceInfoPage(interfaceInfoPage, request));
 //    }
 //
+
     /**
      * 分页获取当前用户创建的资源列表
      *
@@ -171,6 +176,59 @@ public class InterfaceInfoController {
         Page<InterfaceInfo> interfaceInfoPage = interfaceInfoService.getListByUserId(userId);
         return ResultUtils.success(interfaceInfoPage);
     }
+
+    /**
+     * 上线一个接口
+     * @param id
+     * @return
+     */
+    @PostMapping("/online")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    public BaseResponse<Boolean> onlineInterfaceInfo(@RequestParam Integer id) {
+        if (id < 0) {
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
+        }
+        // 1.判断接口是否存在
+        InterfaceInfo interfaceInfo = interfaceInfoService.getById(id);
+        ThrowUtils.throwIf(interfaceInfo == null, ErrorCode.NOT_FOUND_ERROR);
+        // 2.判断接口是否可以调用
+        String url = interfaceInfo.getUrl();
+        String method = interfaceInfo.getMethod();
+        HttpResponse result = null;
+        if (StringUtils.equalsAny(method, "POST", "post")) {
+            result = HttpRequest.post(url)
+                    .execute();
+        } else if (StringUtils.equalsAny(method, "GET", "get")) {
+            result = HttpRequest.get(url)
+                    .execute();
+        }
+        ThrowUtils.throwIf(result == null || result.getStatus() != 200, ErrorCode.NOT_FOUND_ERROR,"该接口不存在!");
+        // 3.上线接口，status=1
+        InterfaceInfo newOne = new InterfaceInfo();
+        newOne.setId(Long.valueOf(id));
+        newOne.setStatus(ONLINE.getValue());
+        boolean isOnline = interfaceInfoService.updateById(newOne);
+        return ResultUtils.success(isOnline);
+    }
+
+
+    @PostMapping("/offline")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    public BaseResponse<Boolean> offlineInterfaceInfo(@RequestParam Integer id) {
+        if (id < 0) {
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
+        }
+        // 1.判断接口是否存在
+        InterfaceInfo interfaceInfo = interfaceInfoService.getById(id);
+        ThrowUtils.throwIf(interfaceInfo == null, ErrorCode.NOT_FOUND_ERROR);
+        // 2.下线接口，status=0
+        InterfaceInfo newOne = new InterfaceInfo();
+        newOne.setId(Long.valueOf(id));
+        newOne.setStatus(OFFLINE.getValue());
+        boolean isOnline = interfaceInfoService.updateById(newOne);
+        return ResultUtils.success(isOnline);
+    }
+
 
     // endregion
 
