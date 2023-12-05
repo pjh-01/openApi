@@ -2,23 +2,24 @@ package com.pjh.openApi.controller;
 
 import cn.hutool.http.HttpRequest;
 import cn.hutool.http.HttpResponse;
+import cn.hutool.json.JSONUtil;
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.google.gson.Gson;
 import com.pjh.openApi.annotation.AuthCheck;
-import com.pjh.openApi.common.BaseResponse;
-import com.pjh.openApi.common.DeleteRequest;
-import com.pjh.openApi.common.ErrorCode;
-import com.pjh.openApi.common.ResultUtils;
+import com.pjh.openApi.common.*;
 import com.pjh.openApi.constant.UserConstant;
 import com.pjh.openApi.exception.BusinessException;
 import com.pjh.openApi.exception.ThrowUtils;
-import com.pjh.openApi.model.dto.interfaceInfo.InterfaceInfoAddRequest;
-import com.pjh.openApi.model.dto.interfaceInfo.InterfaceInfoEditRequest;
-import com.pjh.openApi.model.dto.interfaceInfo.InterfaceInfoUpdateRequest;
+import com.pjh.openApi.mapper.InterfaceInfoMapper;
+import com.pjh.openApi.model.dto.interfaceInfo.*;
 import com.pjh.openApi.model.entity.InterfaceInfo;
+import com.pjh.openApi.model.entity.Post;
 import com.pjh.openApi.model.entity.User;
 import com.pjh.openApi.service.InterfaceInfoService;
 import com.pjh.openApi.service.UserService;
+import com.pjh.openApi.utils.SendUtils;
+import com.pjh.pjhapiclientsdk.client.Client;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
@@ -26,6 +27,8 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+
+import java.util.List;
 
 import static com.pjh.openApi.model.enums.InterfaceInfoStatusEnum.OFFLINE;
 import static com.pjh.openApi.model.enums.InterfaceInfoStatusEnum.ONLINE;
@@ -42,7 +45,11 @@ import static com.pjh.openApi.model.enums.InterfaceInfoStatusEnum.ONLINE;
 public class InterfaceInfoController {
 
     @Resource
+    private InterfaceInfoMapper interfaceInfoMapper;
+
+    @Resource
     private InterfaceInfoService interfaceInfoService;
+
 
     @Resource
     private UserService userService;
@@ -122,23 +129,23 @@ public class InterfaceInfoController {
         return ResultUtils.success(result);
     }
 
-//    /**
-//     * 根据 id 获取
-//     *
-//     * @param id
-//     * @return
-//     */
-//    @GetMapping("/get/vo")
-//    public BaseResponse<InterfaceInfo> getInterfaceInfoById(long id, HttpServletRequest request) {
-//        if (id <= 0) {
-//            throw new BusinessException(ErrorCode.PARAMS_ERROR);
-//        }
-//        InterfaceInfo interfaceInfo = interfaceInfoService.getById(id);
-//        if (interfaceInfo == null) {
-//            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR);
-//        }
-//        return ResultUtils.success(interfaceInfoService.getInterfaceInfo(interfaceInfo, request));
-//    }
+    /**
+     * 根据 id 获取
+     *
+     * @param id
+     * @return
+     */
+    @GetMapping("/get/vo")
+    public BaseResponse<InterfaceInfo> getInterfaceInfoById(long id, HttpServletRequest request) {
+        if (id <= 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        InterfaceInfo interfaceInfo = interfaceInfoService.getById(id);
+        if (interfaceInfo == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR);
+        }
+        return ResultUtils.success(interfaceInfoService.getById(id));
+    }
 //
 //    /**
 //     * 分页获取列表（封装类）
@@ -161,24 +168,29 @@ public class InterfaceInfoController {
 //
 
     /**
-     * 分页获取当前用户创建的资源列表
+     * 分页获取资源列表
      *
      * @param request
      * @return
      */
-    @PostMapping("/my/list/page/vo")
-    public BaseResponse<Page<InterfaceInfo>> listMyInterfaceInfoByPage(HttpServletRequest request) {
+    @PostMapping("/list/page/vo")
+    public BaseResponse<Page<InterfaceInfo>> listInterfaceInfoByPage(@RequestBody InterfaceInfoQueryRequest queryRequest,
+                                                                     HttpServletRequest request) {
         if (request == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        User loginUser = userService.getLoginUser(request);
-        Long userId = loginUser.getId();
-        Page<InterfaceInfo> interfaceInfoPage = interfaceInfoService.getListByUserId(userId);
+        long current = queryRequest.getCurrent();
+        long pageSize = queryRequest.getPageSize();
+        // 限制爬虫
+        ThrowUtils.throwIf(pageSize > 20, ErrorCode.PARAMS_ERROR);
+        Page<InterfaceInfo> interfaceInfoPage = interfaceInfoService.page(new Page<>(current, pageSize),
+                interfaceInfoService.getQueryWrapper(queryRequest));
         return ResultUtils.success(interfaceInfoPage);
     }
 
     /**
      * 上线一个接口
+     *
      * @param id
      * @return
      */
@@ -202,7 +214,7 @@ public class InterfaceInfoController {
             result = HttpRequest.get(url)
                     .execute();
         }
-        ThrowUtils.throwIf(result == null || result.getStatus() != 200, ErrorCode.NOT_FOUND_ERROR,"该接口不存在!");
+        ThrowUtils.throwIf(result == null || (result.getStatus() != 200 && result.getStatus() != 302), ErrorCode.NOT_FOUND_ERROR, "该接口不存在!");
         // 3.上线接口，status=1
         InterfaceInfo newOne = new InterfaceInfo();
         newOne.setId(Long.valueOf(id));
@@ -212,6 +224,12 @@ public class InterfaceInfoController {
     }
 
 
+    /**
+     * 下线一个接口
+     *
+     * @param id
+     * @return
+     */
     @PostMapping("/offline")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     public BaseResponse<Boolean> offlineInterfaceInfo(@RequestParam Integer id) {
@@ -276,6 +294,36 @@ public class InterfaceInfoController {
         }
         boolean result = interfaceInfoService.updateById(interfaceInfo);
         return ResultUtils.success(result);
+    }
+
+    /**
+     * 调用一个接口
+     *
+     * @param invokeRequest
+     * @param request
+     * @return
+     */
+    @PostMapping("/invoke")
+    public BaseResponse<Object> invokeInterfaceInfo(@RequestBody InterfaceInfoInvokeRequest invokeRequest, HttpServletRequest request) {
+        if (invokeRequest == null || invokeRequest.getId() <= 0) {
+            throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
+        }
+        Long id = invokeRequest.getId();
+        String userRequestParams = invokeRequest.getUserRequestParams();
+
+        User loginUser = userService.getLoginUser(request);
+        String accessKey = loginUser.getAccessKey();
+        String secretKey = loginUser.getSecretKey();
+
+        // 1.判断接口是否存在
+        InterfaceInfo interfaceInfo = interfaceInfoService.getById(id);
+        ThrowUtils.throwIf(interfaceInfo == null, ErrorCode.NOT_FOUND_ERROR);
+        // 2.判断接口是否可用
+        ThrowUtils.throwIf(interfaceInfo.getStatus() != 1, ErrorCode.FORBIDDEN_ERROR);
+//        Client client = new Client(accessKey, secretKey);
+//        String res = client.send(interfaceInfo.getMethod(), interfaceInfo.getUrl(), null);
+        String res = SendUtils.send(interfaceInfo.getMethod(), interfaceInfo.getUrl());
+        return ResultUtils.success(res);
     }
 
 }

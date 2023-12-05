@@ -25,7 +25,7 @@ Q4 以上流程都完成后，发现调用方式太过复杂，如何简单地�
             private String secretKey;
 
             @Bean
-            public Client getCilent(){
+            public Client getlient(){
                 return new Client(accessKey,secretKey);
             }
         }
@@ -33,6 +33,14 @@ Q4 以上流程都完成后，发现调用方式太过复杂，如何简单地�
     配置org.springframework.boot.autoconfigure.EnableAutoConfiguration=com.pjh.pjhapiclientsdk.PjhApiClientSDKConfig
     5.在maven中运行install指令，发布到本地maven仓库中
     6.用户映入我的依赖，maven坐标就在原来的pom.xml中
+
+Q5 明明是这样做的，为什么maven显示找不到依赖呢？
+    确实是install成功了，D盘也有，但好像同步到C盘的仓库时出问题了，jar包不见了，只有空文件夹
+    而可能是配置问题，maven走的C盘读取依赖，于是就找不到依赖了
+    只需从D盘拷贝一份到C盘即可
+
+Q6 犯了一个很蠢的问题，导入依赖后不注入Client反而自己new了一个，然后new出来的client不会读取yaml的配置
+    我的天哪当然不会读取啊，没被springboot托管
 
 2023年11月27日 晚
 Q1 怎么去发布接口？

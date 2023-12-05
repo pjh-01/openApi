@@ -123,6 +123,12 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+<!--        自己写的发送http请求的maven-->
+        <dependency>
+            <groupId>com.pjh</groupId>
+            <artifactId>pjhApi-client-SDK</artifactId>
+            <version>0.0.1</version>
+        </dependency>
     </dependencies>
 
     <build>

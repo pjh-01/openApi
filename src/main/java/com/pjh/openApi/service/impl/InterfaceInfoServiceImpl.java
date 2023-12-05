@@ -1,19 +1,27 @@
 package com.pjh.openApi.service.impl;
 
+import cn.hutool.core.util.NumberUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.pjh.openApi.common.ErrorCode;
 import com.pjh.openApi.common.PageRequest;
+import com.pjh.openApi.constant.CommonConstant;
 import com.pjh.openApi.exception.BusinessException;
 import com.pjh.openApi.exception.ThrowUtils;
+import com.pjh.openApi.model.dto.interfaceInfo.InterfaceInfoQueryRequest;
 import com.pjh.openApi.model.entity.InterfaceInfo;
+import com.pjh.openApi.model.entity.Post;
 import com.pjh.openApi.service.InterfaceInfoService;
 import com.pjh.openApi.mapper.InterfaceInfoMapper;
+import com.pjh.openApi.utils.SqlUtils;
+import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
+import java.util.List;
 
 /**
  * @author 宇宙无敌超级大帅哥
@@ -57,6 +65,40 @@ public class InterfaceInfoServiceImpl extends ServiceImpl<InterfaceInfoMapper, I
         wrapper.eq("userId",userId);
         return this.page(new Page<>(current, size),wrapper);
 
+    }
+
+    @Override
+    public QueryWrapper<InterfaceInfo> getQueryWrapper(InterfaceInfoQueryRequest queryRequest) {
+        QueryWrapper<InterfaceInfo> queryWrapper = new QueryWrapper<>();
+        if (queryRequest == null) {
+            return queryWrapper;
+        }
+        Long id = queryRequest.getId();
+        String name = queryRequest.getName();
+        String description = queryRequest.getDescription();
+        String url = queryRequest.getUrl();
+        String requestHeader = queryRequest.getRequestHeader();
+        String responseHeader = queryRequest.getResponseHeader();
+        Integer status = queryRequest.getStatus();
+        String method = queryRequest.getMethod();
+        Long userId = queryRequest.getUserId();
+        String sortField = queryRequest.getSortField();
+        String sortOrder = queryRequest.getSortOrder();
+        // 拼接查询条件-String部分
+        queryWrapper.like(StringUtils.isNotBlank(name), "name", name);
+        queryWrapper.like(StringUtils.isNotBlank(description), "description", description);
+        queryWrapper.like(StringUtils.isNotBlank(url), "url", url);
+        queryWrapper.like(StringUtils.isNotBlank(requestHeader), "requestHeader", requestHeader);
+        queryWrapper.like(StringUtils.isNotBlank(responseHeader), "responseHeader", responseHeader);
+        queryWrapper.like(StringUtils.isNotBlank(method), "method", method);
+        // 拼接查询条件-int部分
+        queryWrapper.eq(ObjectUtils.isNotEmpty(id)&&id>0, "id", id);
+        queryWrapper.eq(ObjectUtils.isNotEmpty(status)&&(status==0||status==1), "status", status);
+        queryWrapper.eq(ObjectUtils.isNotEmpty(userId)&&userId>0, "userId", userId);
+        queryWrapper.eq("isDelete", 0);
+        queryWrapper.orderBy(SqlUtils.validSortField(sortField), sortOrder.equals(CommonConstant.SORT_ORDER_ASC),
+                sortField);
+        return queryWrapper;
     }
 
 

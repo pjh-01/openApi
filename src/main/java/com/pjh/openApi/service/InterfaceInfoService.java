@@ -1,8 +1,12 @@
 package com.pjh.openApi.service;
 
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.pjh.openApi.model.dto.interfaceInfo.InterfaceInfoQueryRequest;
+import com.pjh.openApi.model.dto.post.PostQueryRequest;
 import com.pjh.openApi.model.entity.InterfaceInfo;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.pjh.openApi.model.entity.Post;
 
 /**
 * @author 宇宙无敌超级大帅哥
@@ -27,6 +31,14 @@ public interface InterfaceInfoService extends IService<InterfaceInfo> {
      * @return
      */
     Page<InterfaceInfo> getListByUserId(Long userId);
+
+    /**
+     * 获取查询条件
+     *
+     * @param
+     * @return
+     */
+    QueryWrapper<InterfaceInfo> getQueryWrapper(InterfaceInfoQueryRequest queryRequest);
 
 
 }
