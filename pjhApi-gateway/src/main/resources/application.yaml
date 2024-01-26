@@ -1,0 +1,44 @@
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/pjhapidb
+    username: root
+    password: 112629
+  cloud:
+    gateway:
+      routes:
+        - id: api_routes
+          uri: http://localhost:8123
+          predicates:
+            - Path=/api/**
+logging:
+  level:
+    org:
+      springframework:
+        cloud:
+          gateway: trace
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: false
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      logic-delete-field: isDelete # 全局逻辑删除的实体字段名
+      logic-delete-value: 1 # 逻辑已删除值（默认为 1）
+      logic-not-delete-value: 0 # 逻辑未删除值（默认为 0）
+
+server:
+  port: 8105
+
+dubbo:
+  application:
+    name: dubbo-pjhApi-gateway-consumer
+  protocol:
+    name: dubbo
+    port: -1
+  registry:
+    id: pjhApi-gateway-registry
+    address: nacos://localhost:8848
+
+
